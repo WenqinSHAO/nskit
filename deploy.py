@@ -1,4 +1,4 @@
-from pyroute2 import netns, IPDB
+from pyroute2 import netns, IPDB, IPRoute
 import networkx as nx
 
 
@@ -13,12 +13,11 @@ def deploy(topo):
     for n in topo.nodes():
         netns.create(n)
     # add links and attribute each interface to proper network namespace
-    ip = IPDB()
+    ip = IPRoute()
     for (i, j, intf_pair) in topo.edges.data('interfaces'):
-        ip.create(ifname=intf_pair[0], peer=intf_pair[1], kind='veth').commit()
-        with ip.interfaces.intf_pair[0] as veth:
-            veth.net_ns_fd = i
-        with ip.interfaces.intf_pair[1] as veth:
-            veth.net_ns_fd = j
-    ip.release()
+        print(i, j, intf_pair)
+        ip.link('add', ifname=intf_pair[0], kind='veth', peer=intf_pair[1])
+        for ns, intf in zip([i,j], intf_pair):
+            intf_idx = ip.link_lookup(ifname=intf)[0]
+            ip.link('set', index=intf_idx, net_ns_fd=ns)
 
